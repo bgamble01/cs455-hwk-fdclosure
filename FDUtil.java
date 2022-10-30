@@ -1,12 +1,13 @@
 import java.util.Set;
+import java.util.Arrays;
 import java.util.HashSet;
 
 /**
  * This utility class is not meant to be instantitated, and just provides some
  * useful methods on FD sets.
  * 
- * @author <<YOUR NAME>>
- * @version <<DATE>>
+ * @author <<Ben Gamble>>
+ * @version <<Oct 29>>
  */
 public final class FDUtil {
 
@@ -17,10 +18,19 @@ public final class FDUtil {
    * @return a set of trivial FDs with respect to the given FDSet
    */
   public static FDSet trivial(final FDSet fdset) {
-    // TODO: Obtain the power set of each FD's left-hand attributes. For each
-    // element in the power set, create a new FD and add it to the a new FDSet.
+     FDSet trivs = new FDSet();
+     FDSet copied = new FDSet(fdset);
+     for (FD individual: copied) {
+        Set<Set<String>> power= powerSet(individual.getLeft());
+        for (Set<String> gen:power) {
+           if(!gen.isEmpty()) {
+              trivs.add(new FD(individual.getLeft(),gen));
+           }
+        }
+     }
+     return trivs;
 
-    return null;
+    
   }
 
   /**
@@ -31,10 +41,21 @@ public final class FDUtil {
    * @return a set of augmented FDs
    */
   public static FDSet augment(final FDSet fdset, final Set<String> attrs) {
-    // TODO: Copy each FD in the given set and then union both sides with the given
-    // set of attributes, and add this augmented FD to a new FDSet.
 
-    return null;
+      FDSet augs = new FDSet();
+      FDSet copied = new FDSet(fdset);
+      
+      for ( FD individual : copied) {
+            FD indiv_copy = new FD(individual);
+            indiv_copy.addToLeft(attrs);
+            indiv_copy.addToRight(attrs);
+         
+            augs.add(indiv_copy);
+         
+
+      }
+    return augs;
+
   }
 
   /**
@@ -44,29 +65,94 @@ public final class FDUtil {
    * @return all transitive FDs with respect to the input FD set
    */
   public static FDSet transitive(final FDSet fdset) {
-    // TODO: Examine each pair of FDs in the given set. If the transitive property
-    // holds on the pair of FDs, then generate the new FD and add it to a new FDSet.
-    // Repeat until no new transitive FDs are found.
+     FDSet copied = new FDSet(fdset);
+     
+     FDSet found= transitivehelp(copied);
+     
+     found.getSet().removeAll(copied.getSet());
+     
+     // set subtraction to remove original FDs
+     
+     return found;
 
-    return null;
+  }
+  
+  
+  /**
+   * Helper method that includes the original FDset
+   * 
+   * @param fdset (Immutable) FD Set
+   * @return all transitive FDs with respect to the input FD set
+   */
+  public static FDSet transitivehelp(final FDSet fdset) {
+  FDSet copied = new FDSet(fdset);
+  FDSet adds = new FDSet();
+  
+  for (FD fd1 : copied) {
+     for (FD fd2 : copied) {
+        if (!fd1.equals(fd2)) {
+           if((fd1.getRight()).equals(fd2.getLeft())) {
+              adds.add(new FD(fd1.getLeft(),fd2.getRight()));
+           }
+        }
+     }
+  }
+  
+  if(copied.getSet().containsAll(adds.getSet())) {
+     return fdset;
   }
 
-  /**
+  
+  copied.addAll(adds);
+  
+  return transitivehelp(copied);
+}
+
+  /*
    * Generates the closure of the given FD Set
    * 
    * @param fdset (Immutable) FD Set
    * @return the closure of the input FD Set
    */
-  public static FDSet fdSetClosure(final FDSet fdset) {
-    // TODO: Use the FDSet copy constructor to deep copy the given FDSet
+   public static FDSet fdSetClosure(final FDSet fdset) {
 
-    // TODO: Generate new FDs by applying Trivial and Augmentation Rules, followed
-    // by Transitivity Rule, and add new FDs to the result.
-    // Repeat until no further changes are detected.
+      FDSet copied = new FDSet(fdset);
+      FDSet temporary = new FDSet(fdset);
+      boolean check = true;
 
-    return null;
-  }
+      // generate the powerset of all original attributes that will be used
+      // multiple times below
+      Set<String> attrs = new HashSet<>();
+      for (FD temp : fdset) {
+         attrs.addAll(temp.getLeft());
+         attrs.addAll(temp.getRight());
+      }
+      Set<Set<String>> power = powerSet(attrs);
 
+      int currlen;
+      while (check == true) {
+         currlen = copied.size();
+
+         for (Set<String> gen : power) {
+            if (!gen.isEmpty()) {
+               temporary = augment(copied, gen);
+               copied.addAll(temporary);
+            }
+         }
+         temporary = trivial(copied);
+         copied.addAll(temporary);
+
+         temporary = transitive(copied);
+         copied.addAll(temporary);
+
+         if (copied.size() == currlen) {
+            check = false;
+         }
+      }
+      return copied;
+   }
+   
+   
   /**
    * Generates the power set of the given set (that is, all subsets of
    * the given set of elements)
